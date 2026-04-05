@@ -1,0 +1,201 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI Interview Practice Bot</title>
+  <style>
+    body { font-family: system-ui, Arial; max-width: 900px; margin: 24px auto; padding: 0 16px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    label { font-size: 13px; color: #333; display:block; margin-bottom: 6px; }
+    input, select, textarea, button { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ccc; }
+    textarea { min-height: 120px; resize: vertical; }
+    button { border: none; background: #111; color: #fff; font-weight: 600; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+    .card { border: 1px solid #ddd; border-radius: 14px; padding: 14px; margin-top: 14px; }
+    .muted { color:#666; font-size: 13px; }
+    pre { white-space: pre-wrap; word-break: break-word; background:#f6f6f6; padding: 12px; border-radius: 12px; }
+  </style>
+</head>
+<body>
+  <h1>AI Interview Practice Bot</h1>
+  <p class="muted">OpenRouter + stepfun/step-3.5-flash:free. Mock interview → answer → feedback → next question.</p>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <label>Role</label>
+        <input id="role" value="Backend Developer" />
+      </div>
+      <div>
+        <label>Level</label>
+        <select id="level">
+          <option>Intern</option>
+          <option selected>Junior</option>
+          <option>Mid</option>
+          <option>Senior</option>
+        </select>
+      </div>
+      <div>
+        <label>Focus</label>
+        <select id="focus">
+          <option selected>General</option>
+          <option>DSA</option>
+          <option>System Design</option>
+          <option>Behavioral</option>
+          <option>Project Deep Dive</option>
+        </select>
+      </div>
+      <div>
+        <label>Model</label>
+        <input id="model" value="stepfun/step-3.5-flash:free" />
+      </div>
+    </div>
+
+    <div style="margin-top:12px;">
+      <button id="startBtn">Start Interview</button>
+    </div>
+  </div>
+
+  <div class="card" id="qCard" style="display:none;">
+    <h3>Question</h3>
+    <pre id="question"></pre>
+
+    <h3>Your Answer</h3>
+    <textarea id="answer" placeholder="Type your answer here..."></textarea>
+    <button id="evalBtn">Evaluate Answer</button>
+  </div>
+
+  <div class="card" id="rCard" style="display:none;">
+    <h3>Feedback</h3>
+    <div id="score"></div>
+
+    <h4>Strengths</h4>
+    <ul id="strengths"></ul>
+
+    <h4>Gaps</h4>
+    <ul id="gaps"></ul>
+
+    <h4>Better Answer</h4>
+    <pre id="better"></pre>
+
+    <h4>Follow-ups</h4>
+    <ul id="followups"></ul>
+
+    <h4>Next Question</h4>
+    <pre id="nextQ"></pre>
+
+    <button id="useNextBtn">Use Next Question</button>
+  </div>
+
+  <script>
+    const API = "http://localhost:8787/api";
+    const startBtn = document.getElementById("startBtn");
+    const evalBtn = document.getElementById("evalBtn");
+    const useNextBtn = document.getElementById("useNextBtn");
+
+    const qCard = document.getElementById("qCard");
+    const rCard = document.getElementById("rCard");
+
+    const roleEl = document.getElementById("role");
+    const levelEl = document.getElementById("level");
+    const focusEl = document.getElementById("focus");
+    const modelEl = document.getElementById("model");
+
+    const questionEl = document.getElementById("question");
+    const answerEl = document.getElementById("answer");
+
+    const scoreEl = document.getElementById("score");
+    const strengthsEl = document.getElementById("strengths");
+    const gapsEl = document.getElementById("gaps");
+    const betterEl = document.getElementById("better");
+    const followupsEl = document.getElementById("followups");
+    const nextQEl = document.getElementById("nextQ");
+
+    let currentQuestion = "";
+    let nextQuestion = "";
+
+    function liList(ul, items) {
+      ul.innerHTML = "";
+      (items || []).forEach(x => {
+        const li = document.createElement("li");
+        li.textContent = x;
+        ul.appendChild(li);
+      });
+    }
+
+    startBtn.onclick = async () => {
+      startBtn.disabled = true;
+      rCard.style.display = "none";
+      try {
+        const res = await fetch(`${API}/start`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            role: roleEl.value,
+            level: levelEl.value,
+            focus: focusEl.value,
+            model: modelEl.value
+          })
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "Failed to start");
+        currentQuestion = data.question;
+        questionEl.textContent = currentQuestion;
+        answerEl.value = "";
+        qCard.style.display = "block";
+      } catch (e) {
+        alert(e.message);
+      } finally {
+        startBtn.disabled = false;
+      }
+    };
+
+    evalBtn.onclick = async () => {
+      evalBtn.disabled = true;
+      rCard.style.display = "none";
+      try {
+        const res = await fetch(`${API}/evaluate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            role: roleEl.value,
+            level: levelEl.value,
+            focus: focusEl.value,
+            model: modelEl.value,
+            question: currentQuestion,
+            answer: answerEl.value
+          })
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "Failed to evaluate");
+
+        const r = data.result;
+        scoreEl.textContent = `Score: ${r.score}/10`;
+        liList(strengthsEl, r.strengths);
+        liList(gapsEl, r.gaps);
+        betterEl.textContent = r.better_answer || "";
+        liList(followupsEl, r.follow_ups);
+
+        nextQuestion = r.next_question || "";
+        nextQEl.textContent = nextQuestion;
+
+        rCard.style.display = "block";
+      } catch (e) {
+        alert(e.message);
+      } finally {
+        evalBtn.disabled = false;
+      }
+    };
+
+    useNextBtn.onclick = () => {
+      if (!nextQuestion) return;
+      currentQuestion = nextQuestion;
+      questionEl.textContent = currentQuestion;
+      answerEl.value = "";
+      rCard.style.display = "none";
+      qCard.style.display = "block";
+    };
+  </script>
+</body>
+</html>
