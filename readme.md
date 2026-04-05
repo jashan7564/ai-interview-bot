@@ -109,12 +109,6 @@ in your browser
 
 ---
 
-## 📸 Screenshots
-
-> Add your project screenshots here to make it more professional 👀
-
----
-
 ## 🌐 Future Improvements
 
 * 🎤 Voice-based interview system
@@ -133,7 +127,7 @@ This project uses third-party AI APIs. Ensure you follow API usage policies and 
 ## 👨‍💻 Author
 
 **Your Name**
-GitHub: https://github.com/YOUR_USERNAME
+GitHub: https://github.com/jashan7564
 
 ---
 
